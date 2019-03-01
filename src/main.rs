@@ -22,7 +22,6 @@ fn main() {
             break;
         }
 
-        println!("{:?}", lastchar);
         map.attempt_move(&user1name, &buf);
     }
 }

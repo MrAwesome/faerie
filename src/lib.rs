@@ -99,21 +99,91 @@ impl User {
 }
 
 pub struct GameMap {
+    rooms: RoomCollection,
+    users: UserCollection,
+}
+
+struct RoomCollection {
     rooms: HashMap<RoomName, Room>,
+}
+
+impl RoomCollection {
+    fn new() -> RoomCollection {
+        RoomCollection {
+            rooms: HashMap::new(),
+        }
+    }
+
+    fn get_room(&self, room_name: &RoomName) -> &Room {
+        let room = self
+            .rooms
+            .get(room_name)
+            .expect(&format!("Failed to find room named {}!", room_name));
+        room
+    }
+
+    fn get_room_mut(&mut self, room_name: &RoomName) -> &mut Room {
+        let room = self.rooms.get_mut(room_name).expect(&format!(
+            "Failed to find room named {} for mutation!",
+            room_name
+        ));
+        room
+    }
+
+    fn check_room_exists(&self, room_name: &RoomName) {
+        assert!(
+            self.rooms.contains_key(room_name),
+            format!("No room named {} exists!", room_name)
+        );
+    }
+}
+
+struct UserCollection {
     users: HashMap<UserName, User>,
+}
+
+impl UserCollection {
+    fn new() -> UserCollection {
+        UserCollection {
+            users: HashMap::new(),
+        }
+    }
+
+    fn get_user(&self, user_name: &UserName) -> &User {
+        let user = self
+            .users
+            .get(user_name)
+            .expect(&format!("Failed to find user named {}!", user_name));
+        user
+    }
+
+    fn get_user_mut(&mut self, user_name: &UserName) -> &mut User {
+        let user = self.users.get_mut(user_name).expect(&format!(
+            "Failed to find user named {} for mutation!",
+            user_name
+        ));
+        user
+    }
+
+    fn check_user_exists(&self, user_name: &UserName) {
+        assert!(
+            self.users.contains_key(user_name),
+            format!("No user named {} exists!", user_name)
+        );
+    }
 }
 
 impl GameMap {
     pub fn new() -> GameMap {
         GameMap {
-            rooms: HashMap::new(),
-            users: HashMap::new(),
+            rooms: RoomCollection::new(),
+            users: UserCollection::new(),
         }
     }
 
     pub fn print_debug_map(&self) {
         println!("Rooms:");
-        for (_roomname, room) in &self.rooms {
+        for (_roomname, room) in &self.rooms.rooms {
             println!("  {}: ", room.name);
             println!("    paths:");
             for (_pathname, path) in &room.exits {
@@ -129,20 +199,14 @@ impl GameMap {
         println!();
         println!("Users:");
 
-        for (_username, user) in &self.users {
+        for (_username, user) in &self.users.users {
             println!(" {}", user.name);
         }
     }
 
     pub fn print_room(&self, username: &UserName) {
-        let user = self
-            .users
-            .get(username)
-            .expect("Attempted to print an invalid user.");
-        let room = self
-            .rooms
-            .get(&user.room_name)
-            .expect("Attempted to print an invalid room.");
+        let user = self.users.get_user(username);
+        let room = self.rooms.get_room(&user.room_name);
         let desc = room.description.clone();
 
         println!("{}", &user.room_name);
@@ -156,7 +220,8 @@ impl GameMap {
 
     pub fn create_empty_room(&mut self, name: &RoomName, desc: String) {
         let room = Room::new(name.clone(), desc);
-        self.rooms.insert(name.clone(), room);
+        // TODO: make this an action on the roomcollection directly?
+        self.rooms.rooms.insert(name.clone(), room);
     }
 
     pub fn add_path(
@@ -178,25 +243,16 @@ impl GameMap {
         target_room_name: &RoomName,
         direction: Direction,
     ) {
-        self.check_room_exists(target_room_name);
-        let source_room = self.get_room_mut(source_room_name);
+        self.rooms.check_room_exists(target_room_name);
+        let source_room = self.rooms.get_room_mut(source_room_name);
         let path_name = Direction::get_path_name(direction.clone());
         source_room.add_exit(target_room_name, &path_name);
     }
 
-    fn check_room_exists(&self, room_name: &RoomName) {
-        assert!(
-            self.rooms.contains_key(room_name),
-            format!("No room named {} exists!", room_name)
-        );
-    }
-
-    fn get_room_mut(&mut self, room_name: &RoomName) -> &mut Room {
-        let source_room = self.rooms.get_mut(room_name).expect(&format!(
-            "Failed to find room named {} for mutation!",
-            room_name
-        ));
-        source_room
+    fn get_user_location(&self, user_name: &UserName) -> RoomName {
+        let user = self.users.get_user(user_name);
+        self.rooms.check_room_exists(&user.room_name);
+        user.room_name.clone()
     }
 
     // TODO: dedup this code, make path types work both directions if requested?
@@ -225,12 +281,9 @@ impl GameMap {
         user_type: UserType,
     ) {
         let user = User::new(user_name.clone(), room_name.clone(), user_type);
-        self.users.insert(user_name.clone(), user);
+        self.users.users.insert(user_name.clone(), user);
 
-        let room = self
-            .rooms
-            .get_mut(room_name)
-            .expect("Attempted to create user in nonexistent room!");
+        let room = self.rooms.get_room_mut(room_name);
         room.add_user(user_name.clone());
     }
 
@@ -265,17 +318,11 @@ impl GameMap {
         }
 
         let mut messages = vec![];
-        let user = self
-            .users
-            .get_mut(user_name)
-            .expect("Invalid username detected! Bailing.");
-        let room_name = &user.room_name.clone();
 
-        let room = self
-            .rooms
-            .get_mut(room_name)
-            .expect("Invalid room detected! Bailing.");
+        let room_name = self.get_user_location(user_name);
+        let room = self.rooms.get_room_mut(&room_name);
 
+        // TODO: make a pathcollection on each room, make a convenience function which does this?
         let path = match room.exits.get_mut(&possible_path_name) {
             Some(path) => Ok(path),
             None => Err(UnsuccessfulMove {
@@ -286,8 +333,11 @@ impl GameMap {
             }),
         }?;
 
+        // TODO: make this a method somewhere
         if let Some(ref mut exit_lambda) = path.exit_cond {
-            match exit_lambda(user) {
+            let user = self.users.get_user_mut(user_name);
+            let exit_lambda_result = exit_lambda(user);
+            match exit_lambda_result {
                 Ok(message) => {
                     if let Some(m) = message {
                         messages.push(m);
@@ -299,18 +349,13 @@ impl GameMap {
         }
 
         let target_room_name = path.target_room_name.clone();
-
-        let target_room = self
-            .rooms
-            .get_mut(&target_room_name)
-            .expect("Invalid path detected! Bailing.");
-
+        let target_room = self.rooms.get_room_mut(&target_room_name);
         target_room.users.insert(user_name.clone());
 
-        let user = self.users.get_mut(user_name).unwrap();
-        let room = self.rooms.get_mut(room_name).unwrap();
-
+        let user = self.users.get_user_mut(user_name);
         user.room_name = target_room_name.clone();
+
+        let room = self.rooms.get_room_mut(&room_name);
         room.users.take(user_name);
 
         Ok(SuccessfulMove { messages: messages })
@@ -493,12 +538,13 @@ mod tests {
         map.attempt_move(&user1name, &"north".to_string());
         map.attempt_move(&user1name, &"n".to_string());
 
-        let user = map.users.get(&user1name).unwrap();
+        let user = map.users.get_user(&user1name);
         assert_eq!(user.room_name, room3name);
 
-        let room1 = map.rooms.get(&room1name).unwrap();
-        let room2 = map.rooms.get(&room2name).unwrap();
-        let room3 = map.rooms.get(&room3name).unwrap();
+        // TODO: make these use correct calls
+        let room1 = map.rooms.get_room(&room1name);
+        let room2 = map.rooms.get_room(&room2name);
+        let room3 = map.rooms.get_room(&room3name);
         let is_user_in_room3 = room3.users.contains(&user1name);
         assert_eq!(is_user_in_room3, true);
 
@@ -526,11 +572,11 @@ mod tests {
         map.attempt_move(&user1name, &"n".to_string());
         map.attempt_move(&user1name, &"s".to_string());
 
-        let user = map.users.get(&user1name).unwrap();
+        let user = map.users.get_user(&user1name);
         assert_eq!(user.room_name, room1name);
 
-        let room1 = map.rooms.get(&room1name).unwrap();
-        let room2 = map.rooms.get(&room2name).unwrap();
+        let room1 = map.rooms.get_room(&room1name);
+        let room2 = map.rooms.get_room(&room2name);
         let is_user_in_room1 = room1.users.contains(&user1name);
         assert_eq!(is_user_in_room1, true);
 
@@ -549,10 +595,10 @@ mod tests {
         let user1name = "user1".to_string();
         map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
 
-        let user = map.users.get(&user1name).unwrap();
+        let user = map.users.get_user(&user1name);
         assert_eq!(user.room_name, room1name);
 
-        let room1 = map.rooms.get(&room1name).unwrap();
+        let room1 = map.rooms.get_room(&room1name);
         let is_user_in_room1 = room1.users.contains(&user1name);
         assert_eq!(is_user_in_room1, true);
 
@@ -601,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Attempted to create user in nonexistent room!")]
+    #[should_panic(expected = "Failed to find room named FAKEFRIENDS for mutation!")]
     fn attempt_incorrect_room_user_creation() {
         use super::*;
         let mut map = GameMap::new();
