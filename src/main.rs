@@ -15,7 +15,14 @@ fn main() {
         io::stdout().flush().unwrap();
         let mut buf = String::new();
         io::stdin().read_line(&mut buf).unwrap();
-        buf.pop();
+        let lastchar = buf.pop();
+
+        // You don't want this forever, but for now breaking with Ctrl-D is nice
+        if lastchar.is_none() {
+            break;
+        }
+
+        println!("{:?}", lastchar);
         map.attempt_move(&user1name, &buf);
     }
 }
@@ -55,6 +62,8 @@ fn create_basic_map(user1name: String) -> GameMap {
     map.add_path(&room2name, &room3name, Direction::North);
     map.add_path(&room3name, &room4name, Direction::West);
     map.add_path(&room4name, &room5name, Direction::NorthWest);
+
+    map.add_path(&"lawl".to_string(), &"lol".to_string(), Direction::NorthWest);
 
     map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
     map

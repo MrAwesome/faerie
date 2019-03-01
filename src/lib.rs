@@ -161,22 +161,42 @@ impl GameMap {
 
     pub fn add_path(
         &mut self,
-        old_room_name: &RoomName,
+        source_room_name: &RoomName,
         target_room_name: &RoomName,
         direction: Direction,
     ) {
-        let old_room = self.rooms.get_mut(old_room_name).unwrap();
-        let path_name = Direction::get_path_name(direction.clone());
-        old_room.add_exit(target_room_name, &path_name);
+        self.add_path_impl(source_room_name, target_room_name, direction.clone());
 
         if let Some(d) = Direction::get_reverse(direction.clone()) {
-            let target_room = self
-                .rooms
-                .get_mut(target_room_name)
-                .expect("No room with that name seems to exist.");
-            let path_name = Direction::get_path_name(d);
-            target_room.add_exit(old_room_name, &path_name);
+            self.add_path_impl(target_room_name, source_room_name, d);
         }
+    }
+
+    fn add_path_impl(
+        &mut self,
+        source_room_name: &RoomName,
+        target_room_name: &RoomName,
+        direction: Direction,
+    ) {
+        self.check_room_exists(target_room_name);
+        let source_room = self.get_room_mut(source_room_name);
+        let path_name = Direction::get_path_name(direction.clone());
+        source_room.add_exit(target_room_name, &path_name);
+    }
+
+    fn check_room_exists(&self, room_name: &RoomName) {
+        assert!(
+            self.rooms.contains_key(room_name),
+            format!("No room named {} exists!", room_name)
+        );
+    }
+
+    fn get_room_mut(&mut self, room_name: &RoomName) -> &mut Room {
+        let source_room = self.rooms.get_mut(room_name).expect(&format!(
+            "Failed to find room named {} for mutation!",
+            room_name
+        ));
+        source_room
     }
 
     // TODO: dedup this code, make path types work both directions if requested?
@@ -395,21 +415,7 @@ struct Path {
     exit_cond: RoomPassFunc,
 }
 
-impl Path {
-    fn match_basic_aliases(s: String) -> String {
-        match s.as_ref() {
-            "n" => "north".to_string(),
-            "s" => "south".to_string(),
-            "w" => "west".to_string(),
-            "e" => "east".to_string(),
-            "ne" => "northeast".to_string(),
-            "se" => "southeast".to_string(),
-            "nw" => "northwest".to_string(),
-            "sw" => "southwest".to_string(),
-            _ => s,
-        }
-    }
-}
+impl Path {}
 
 pub enum PathType {
     Normal,
@@ -447,6 +453,20 @@ impl Path {
             target_room_name,
             path_name,
             exit_cond,
+        }
+    }
+
+    fn match_basic_aliases(s: String) -> String {
+        match s.as_ref() {
+            "n" => "north".to_string(),
+            "s" => "south".to_string(),
+            "w" => "west".to_string(),
+            "e" => "east".to_string(),
+            "ne" => "northeast".to_string(),
+            "se" => "southeast".to_string(),
+            "nw" => "northwest".to_string(),
+            "sw" => "southwest".to_string(),
+            _ => s,
         }
     }
 }
@@ -634,6 +654,46 @@ mod tests {
             Direction::Custom("mkay".to_string(), "".to_string()),
         );
     }
+
+    #[test]
+    #[should_panic(expected = "No room named FAKENEWS exists!")]
+    fn attempt_path_to_invalid_room() {
+        use super::*;
+        let mut map = GameMap::new();
+
+        let room1name = "room1".to_string();
+        let room2name = "room2".to_string();
+
+        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
+        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+
+        map.add_path(
+            &room1name,
+            &"FAKENEWS".to_string(),
+            Direction::Custom("mkay".to_string(), "jkll".to_string()),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to find room named FAKENEWS for mutation!")]
+    fn attempt_path_from_invalid_room() {
+        use super::*;
+        let mut map = GameMap::new();
+
+        let room1name = "room1".to_string();
+        let room2name = "room2".to_string();
+
+        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
+        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+
+        map.add_path(
+            &"FAKENEWS".to_string(),
+            &room2name,
+            Direction::Custom("mkay".to_string(), "jkll".to_string()),
+        );
+    }
+
+    // TODO: make sure paths are going from correct room to correct room on creation
 
     //    #[test]
     //    fn move_painful() {
