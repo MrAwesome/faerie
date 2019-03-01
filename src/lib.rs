@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
 mod user;
 use user::{User,UserType};
+
 mod type_aliases;
 use type_aliases::{UserName,RoomName,PathName};
-//use entity::type_aliases::{RoomPassFunc};
-use std::collections::HashMap;
-use std::collections::HashSet;
 
-pub type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>, String>>>;
+mod room;
+use room::{Room, Path};
+
 
 // Another way of bypassing the unfortunate box ownership issues for calling Fns stored in them.
 //pub trait FnBox {
@@ -20,13 +22,6 @@ pub type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>
 //}
 //
 //type Job = Box<FnBox + 'static>;
-
-fn mk_callback<F: 'static>(f: F) -> RoomPassFunc
-where
-    F: FnMut(&mut User) -> Result<Option<String>, String>,
-{
-    Some(Box::new(f))
-}
 
 struct SuccessfulMove {
     pub messages: Vec<String>,
@@ -222,7 +217,7 @@ impl GameMap {
         self.users.users.insert(user_name.clone(), user);
 
         let room = self.rooms.get_room_mut(room_name);
-        room.add_user(user_name.clone());
+        room.users.insert(user_name.clone());
     }
 
     pub fn create_basic_user_in_room(
@@ -235,7 +230,7 @@ impl GameMap {
         self.users.users.insert(user_name.clone(), user);
 
         let room = self.rooms.get_room_mut(room_name);
-        room.add_user(user_name.clone());
+        room.users.insert(user_name.clone());
     }
 
     pub fn attempt_move(&mut self, user_name: &UserName, path_name: &PathName) {
@@ -313,52 +308,6 @@ impl GameMap {
     }
 }
 
-pub struct Room {
-    name: RoomName,
-    description: String,
-    exits: HashMap<PathName, Path>,
-    users: HashSet<UserName>,
-}
-
-impl Room {
-    fn new(name: RoomName, description: String) -> Room {
-        assert!(!name.is_empty(), "Empty room names are not allowed!");
-        assert!(
-            !description.is_empty(),
-            "Empty room descriptions are not allowed!"
-        );
-        Room {
-            name,
-            description,
-            exits: HashMap::new(),
-            users: HashSet::new(),
-        }
-    }
-
-    pub fn add_exit(&mut self, target_room_name: &RoomName, path_name: &PathName) {
-        let path = Path::new(
-            target_room_name.clone(),
-            path_name.clone(),
-            PathType::Normal,
-        );
-        self.exits.insert(path_name.clone(), path);
-    }
-
-    pub fn add_exit_special(
-        &mut self,
-        target_room_name: &RoomName,
-        path_name: &PathName,
-        path_type: PathType,
-    ) {
-        let path = Path::new(target_room_name.clone(), path_name.clone(), path_type);
-        self.exits.insert(path_name.clone(), path);
-    }
-
-    pub fn add_user(&mut self, name: UserName) {
-        self.users.insert(name);
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum Direction {
     North,
@@ -401,68 +350,6 @@ impl Direction {
             Direction::NorthWest => Some(Direction::SouthEast),
             Direction::CustomOneWay(_start) => None,
             Direction::Custom(start, end) => Some(Direction::Custom(end, start)),
-        }
-    }
-}
-
-struct Path {
-    target_room_name: RoomName,
-    path_name: PathName,
-    exit_cond: RoomPassFunc,
-}
-
-impl Path {}
-
-pub enum PathType {
-    Normal,
-    Painful,
-    Custom(RoomPassFunc),
-}
-
-impl Path {
-    fn new(target_room_name: RoomName, path_name: PathName, path_type: PathType) -> Path {
-        assert!(!path_name.is_empty(), "Empty path names are not allowed!");
-        match path_type {
-            PathType::Normal => Path {
-                target_room_name,
-                path_name,
-                exit_cond: None,
-            },
-            PathType::Painful => Path::new_painful(target_room_name, path_name),
-            PathType::Custom(exit_cond) => Path {
-                target_room_name,
-                path_name,
-                exit_cond,
-            },
-        }
-    }
-
-    fn new_painful(target_room_name: RoomName, path_name: PathName) -> Path {
-        let clos = |user: &mut User| {
-            user.basic_attributes.hp -= 1;
-
-            Ok(Some("You passed through, but it hurt you.".to_string()))
-        };
-        let exit_cond = mk_callback(clos);
-
-        Path {
-            target_room_name,
-            path_name,
-            exit_cond,
-        }
-    }
-
-    fn match_basic_aliases(s: String) -> String {
-        match s.as_ref() {
-            "n" => "north".to_string(),
-            "s" => "south".to_string(),
-            "w" => "west".to_string(),
-            "e" => "east".to_string(),
-            "ne" => "northeast".to_string(),
-            "se" => "southeast".to_string(),
-            "nw" => "northwest".to_string(),
-            "sw" => "southwest".to_string(),
-            _ => s,
         }
     }
 }
