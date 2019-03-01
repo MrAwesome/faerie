@@ -63,8 +63,6 @@ fn create_basic_map(user1name: String) -> GameMap {
     map.add_path(&room3name, &room4name, Direction::West);
     map.add_path(&room4name, &room5name, Direction::NorthWest);
 
-    map.add_path(&"lawl".to_string(), &"lol".to_string(), Direction::NorthWest);
-
     map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
     map
 }
