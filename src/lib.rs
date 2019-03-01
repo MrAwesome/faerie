@@ -1,17 +1,12 @@
+mod user;
+use user::{User,UserType};
+mod type_aliases;
+use type_aliases::{UserName,RoomName,PathName};
+//use entity::type_aliases::{RoomPassFunc};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>, String>>>;
-type RoomName = String;
-type UserName = String;
-type PathName = String;
-
-#[derive(Debug)]
-pub enum UserType {
-    Civilian,
-    Viking,
-    ElfLord,
-}
+pub type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>, String>>>;
 
 // Another way of bypassing the unfortunate box ownership issues for calling Fns stored in them.
 //pub trait FnBox {
@@ -33,69 +28,12 @@ where
     Some(Box::new(f))
 }
 
-#[derive(Debug)]
-pub struct BasicAttributes {
-    pub hp: i32,
-    pub mp: i32,
-}
-
-impl BasicAttributes {
-    fn default(user_type: &UserType) -> BasicAttributes {
-        match user_type {
-            UserType::Civilian => BasicAttributes { hp: 20, mp: 7 },
-            UserType::Viking => BasicAttributes { hp: 220, mp: 9 },
-            UserType::ElfLord => BasicAttributes { hp: 80, mp: 28 },
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum SpecialAttributes {
-    Civilian { needlessly_chatter: usize },
-    Viking { brutish_swing: u8 },
-    ElfLord { fuck_infusion: u8 },
-}
-
-impl SpecialAttributes {
-    fn default(user_type: &UserType) -> SpecialAttributes {
-        match user_type {
-            UserType::Civilian => SpecialAttributes::Civilian {
-                needlessly_chatter: 20,
-            },
-            UserType::Viking => SpecialAttributes::Viking { brutish_swing: 2 },
-            UserType::ElfLord => SpecialAttributes::ElfLord { fuck_infusion: 3 },
-        }
-    }
-}
-
 struct SuccessfulMove {
     pub messages: Vec<String>,
 }
 
 struct UnsuccessfulMove {
     pub message: String,
-}
-
-#[derive(Debug)]
-pub struct User {
-    pub name: UserName,
-    pub room_name: RoomName,
-    pub basic_attributes: BasicAttributes,
-    pub special_attributes: SpecialAttributes,
-}
-
-impl User {
-    fn new(name: UserName, starting_room_name: RoomName, user_type: UserType) -> User {
-        assert!(!name.is_empty(), "Empty user names are not allowed!");
-        let basic_attributes = BasicAttributes::default(&user_type);
-        let special_attributes = SpecialAttributes::default(&user_type);
-        User {
-            name,
-            room_name: starting_room_name,
-            basic_attributes,
-            special_attributes,
-        }
-    }
 }
 
 pub struct GameMap {
@@ -287,6 +225,19 @@ impl GameMap {
         room.add_user(user_name.clone());
     }
 
+    pub fn create_basic_user_in_room(
+        &mut self,
+        user_name: &UserName,
+        room_name: &RoomName,
+    ) {
+        let user_type = UserType::Civilian;
+        let user = User::new(user_name.clone(), room_name.clone(), user_type);
+        self.users.users.insert(user_name.clone(), user);
+
+        let room = self.rooms.get_room_mut(room_name);
+        room.add_user(user_name.clone());
+    }
+
     pub fn attempt_move(&mut self, user_name: &UserName, path_name: &PathName) {
         let move_succ = self.attempt_move_impl(user_name, path_name);
         match move_succ {
@@ -324,7 +275,7 @@ impl GameMap {
 
         // TODO: make a pathcollection on each room, make a convenience function which does this?
         let path = match room.exits.get_mut(&possible_path_name) {
-            Some(path) => Ok(path),
+            Some(p) => Ok(p),
             None => Err(UnsuccessfulMove {
                 message: format!(
                     "What? There's no direction {} from {}.",

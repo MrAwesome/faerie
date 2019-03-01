@@ -1,4 +1,4 @@
-use faerie::{Direction, GameMap, UserType};
+use faerie::{Direction, GameMap};
 use std::io;
 use std::io::Write;
 
@@ -54,7 +54,7 @@ fn create_basic_map(user1name: String) -> GameMap {
     );
     map.create_empty_room(
         &room5name,
-        "Ah, the real secrets of this little township of the woods.".to_string(),
+        "Ah, the real secret of this little township of the woods.".to_string(),
     );
 
     map.add_path(&room1name, &room2name, Direction::North);
@@ -62,6 +62,6 @@ fn create_basic_map(user1name: String) -> GameMap {
     map.add_path(&room3name, &room4name, Direction::West);
     map.add_path(&room4name, &room5name, Direction::NorthWest);
 
-    map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
+    map.create_basic_user_in_room(&user1name, &room1name);
     map
 }
