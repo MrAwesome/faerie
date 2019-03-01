@@ -1,7 +1,8 @@
 use std::io;
 use std::io::Write;
 
-use faerie::{Direction, GameMap};
+use faerie::GameMap;
+use faerie::room::Direction;
 
 fn main() {
     let user1name = "glenn".to_string();

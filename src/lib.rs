@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 
 mod user;
-use user::{User,UserType};
+use user::{User, UserType};
 
 mod type_aliases;
-use type_aliases::{UserName,RoomName,PathName};
+use type_aliases::{PathName, RoomName, UserName};
 
-mod room;
-use room::{Room, Path};
-
+pub mod room;
+use room::{Direction, Path, Room};
 
 // Another way of bypassing the unfortunate box ownership issues for calling Fns stored in them.
 //pub trait FnBox {
@@ -220,11 +219,7 @@ impl GameMap {
         room.users.insert(user_name.clone());
     }
 
-    pub fn create_basic_user_in_room(
-        &mut self,
-        user_name: &UserName,
-        room_name: &RoomName,
-    ) {
+    pub fn create_basic_user_in_room(&mut self, user_name: &UserName, room_name: &RoomName) {
         let user_type = UserType::Civilian;
         let user = User::new(user_name.clone(), room_name.clone(), user_type);
         self.users.users.insert(user_name.clone(), user);
@@ -305,52 +300,6 @@ impl GameMap {
         room.users.take(user_name);
 
         Ok(SuccessfulMove { messages: messages })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Direction {
-    North,
-    East,
-    South,
-    West,
-    NorthEast,
-    SouthEast,
-    SouthWest,
-    NorthWest,
-    CustomOneWay(PathName),
-    Custom(PathName, PathName),
-}
-
-impl Direction {
-    fn get_path_name(dir: Direction) -> PathName {
-        match dir {
-            Direction::North => "north".to_string(),
-            Direction::South => "south".to_string(),
-            Direction::East => "east".to_string(),
-            Direction::West => "west".to_string(),
-            Direction::NorthEast => "northeast".to_string(),
-            Direction::SouthEast => "southeast".to_string(),
-            Direction::SouthWest => "southwest".to_string(),
-            Direction::NorthWest => "northwest".to_string(),
-            Direction::CustomOneWay(start) => start,
-            Direction::Custom(start, _end) => start,
-        }
-    }
-
-    fn get_reverse(dir: Direction) -> Option<Direction> {
-        match dir {
-            Direction::North => Some(Direction::South),
-            Direction::South => Some(Direction::North),
-            Direction::East => Some(Direction::West),
-            Direction::West => Some(Direction::East),
-            Direction::NorthEast => Some(Direction::SouthWest),
-            Direction::SouthEast => Some(Direction::NorthWest),
-            Direction::SouthWest => Some(Direction::NorthEast),
-            Direction::NorthWest => Some(Direction::SouthEast),
-            Direction::CustomOneWay(_start) => None,
-            Direction::Custom(start, end) => Some(Direction::Custom(end, start)),
-        }
     }
 }
 

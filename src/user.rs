@@ -1,4 +1,4 @@
-use crate::type_aliases::{UserName,RoomName};
+use crate::type_aliases::{RoomName, UserName};
 
 #[derive(Debug)]
 pub enum UserType {

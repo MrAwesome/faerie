@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
 use crate::type_aliases::{PathName, RoomName, UserName};
 use crate::user::User;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>, String>>>;
 fn mk_callback<F: 'static>(f: F) -> RoomPassFunc
@@ -113,3 +113,48 @@ impl Path {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Direction {
+    North,
+    East,
+    South,
+    West,
+    NorthEast,
+    SouthEast,
+    SouthWest,
+    NorthWest,
+    CustomOneWay(PathName),
+    Custom(PathName, PathName),
+}
+
+impl Direction {
+    pub fn get_path_name(dir: Direction) -> PathName {
+        match dir {
+            Direction::North => "north".to_string(),
+            Direction::South => "south".to_string(),
+            Direction::East => "east".to_string(),
+            Direction::West => "west".to_string(),
+            Direction::NorthEast => "northeast".to_string(),
+            Direction::SouthEast => "southeast".to_string(),
+            Direction::SouthWest => "southwest".to_string(),
+            Direction::NorthWest => "northwest".to_string(),
+            Direction::CustomOneWay(start) => start,
+            Direction::Custom(start, _end) => start,
+        }
+    }
+
+    pub fn get_reverse(dir: Direction) -> Option<Direction> {
+        match dir {
+            Direction::North => Some(Direction::South),
+            Direction::South => Some(Direction::North),
+            Direction::East => Some(Direction::West),
+            Direction::West => Some(Direction::East),
+            Direction::NorthEast => Some(Direction::SouthWest),
+            Direction::SouthEast => Some(Direction::NorthWest),
+            Direction::SouthWest => Some(Direction::NorthEast),
+            Direction::NorthWest => Some(Direction::SouthEast),
+            Direction::CustomOneWay(_start) => None,
+            Direction::Custom(start, end) => Some(Direction::Custom(end, start)),
+        }
+    }
+}
