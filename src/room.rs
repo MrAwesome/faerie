@@ -1,15 +1,8 @@
 use crate::type_aliases::{PathName, RoomName, UserName};
+use crate::lambda::{mk_action_callback, ActionFunc, ActionSuccess};
 use crate::user::User;
 use std::collections::HashMap;
 use std::collections::HashSet;
-
-pub type RoomPassFunc = Option<Box<dyn FnMut(&mut User) -> Result<Option<String>, String>>>;
-fn mk_callback<F: 'static>(f: F) -> RoomPassFunc
-where
-    F: FnMut(&mut User) -> Result<Option<String>, String>,
-{
-    Some(Box::new(f))
-}
 
 pub struct Room {
     pub name: RoomName,
@@ -64,13 +57,13 @@ impl Room {
 pub struct Path {
     pub target_room_name: RoomName,
     pub path_name: PathName,
-    pub exit_cond: RoomPassFunc,
+    pub exit_cond: ActionFunc<User>,
 }
 
 pub enum PathType {
     Normal,
     Painful,
-    Custom(RoomPassFunc),
+    Custom(ActionFunc<User>),
 }
 
 impl Path {
@@ -95,9 +88,9 @@ impl Path {
         let clos = |user: &mut User| {
             user.basic_attributes.hp -= 1;
 
-            Ok(Some("You passed through, but it hurt you.".to_string()))
+            Ok(ActionSuccess{ messages: vec!["You passed through, but it hurt you.".to_string()] } )
         };
-        let exit_cond = mk_callback(clos);
+        let exit_cond = mk_action_callback(clos);
 
         Path {
             target_room_name,
