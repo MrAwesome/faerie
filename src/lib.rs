@@ -93,6 +93,12 @@ impl GlobalActions {
             _ => None,
         }
     }
+
+    fn from_enum(input: GlobalActions) -> String {
+        match input {
+            GlobalActions::ListOnlineUsers => "list_users".to_string(),
+        }
+    }
 }
 
 pub struct GameState {
@@ -250,11 +256,21 @@ impl GameState {
     pub fn attempt_global_action(
         &mut self,
         user_name: &UserName,
-        possible_path_name: &String,
+        possible_action_name: &String,
     ) -> Option<Result<ActionSuccess, ActionFailure>> {
+        let action = GlobalActions::from_text(possible_action_name);
+        if let Some(act) = action {
+            match act {
+                GlobalActions::ListOnlineUsers => {
+                    let messages = self.get_online_users_message();
+                    return Some(Ok(ActionSuccess { messages }));
+                }
+            }
+        } else {
+            None
+        }
         //TODO: do actions based on match
         //Some(Ok(ActionSuccess {messages: vec![] }))
-        None
     }
 
     pub fn attempt_move(
@@ -311,6 +327,15 @@ impl GameState {
 
         Ok(ActionSuccess { messages: messages })
     }
+
+    fn get_online_users_message(&self) -> Vec<String> {
+        let mut messages = vec!["Users online:".to_string()];
+        for (username, _) in &self.users.users {
+            messages.push(username.to_string());
+        }
+        messages
+    }
+
 }
 
 #[cfg(test)]
@@ -603,21 +628,25 @@ mod tests {
     }
 
     #[test]
-    fn test_attempt_global_action() {
-        let (mut game_state, user1name, room1name, room2name) = make_simple_2_room_north_map();
+    fn test_attempt_valid_global_action() {
+        let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
 
-        let action_name = "list_users".to_string();
-        //        let global_action = GlobalAction::new(action_name, mk_action_callback(
-        //                                              |state: &mut GameState, user_name: &UserName| {
-        //                                                  state.print_debug_map();
-        //                                                  Ok(ActionSuccess { messages: vec!["Passed brah.".to_string()] })
-        //                                              }));
-        //        game_state.add_global_action(global_action);
-        //
-        //        let invalid_action = game_state.attempt_global_action(&user1name, &"fuckem".to_string());
-        //        let valid_action = game_state.attempt_global_action(&user1name, action_name);
-        //
-        //        assert!(invalid_action.is_err()); // make more robust
-        //        assert!(valid_action.is_ok()); // make more robust
+        let valid_action = game_state.attempt_global_action(
+            &user1name,
+            &GlobalActions::from_enum(GlobalActions::ListOnlineUsers),
+        );
+
+        match valid_action {
+            Some(x) => {
+                if let Ok(ActionSuccess { messages }) = x {
+                    assert_eq!(messages, vec!["Users online:".to_string(), user1name]);
+                } else {
+                    assert!(false, "Listing users attempt failed!");
+                }
+            }
+            None => {
+                assert!(false, "Got no result from global action attempt!");
+            }
+        }
     }
 }
