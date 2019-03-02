@@ -228,13 +228,13 @@ impl GameState {
                 for m in &succ.messages {
                     println!("{}", m);
                 }
-                // TODO: check here if the action was a room move
+
                 if succ.was_room_move() {
                     self.print_room(user_name);
                 }
             }
             Err(unsucc) => {
-                for m in unsucc.messages {
+                for m in &unsucc.messages {
                     println!("{}", m);
                 }
             }
