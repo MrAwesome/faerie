@@ -88,7 +88,7 @@ impl Path {
         let clos = |user: &mut User| {
             user.basic_attributes.hp -= 1;
 
-            Ok(ActionSuccess{ messages: vec!["You passed through, but it hurt you.".to_string()] } )
+            Ok(ActionSuccess::new(vec!["You passed through, but it hurt you.".to_string()]))
         };
         let exit_cond = mk_action_callback(clos);
 

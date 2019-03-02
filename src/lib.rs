@@ -263,14 +263,12 @@ impl GameState {
             match act {
                 GlobalActions::ListOnlineUsers => {
                     let messages = self.get_online_users_message();
-                    return Some(Ok(ActionSuccess { messages }));
+                    return Some(Ok(ActionSuccess::new(messages)));
                 }
             }
         } else {
             None
         }
-        //TODO: do actions based on match
-        //Some(Ok(ActionSuccess {messages: vec![] }))
     }
 
     pub fn attempt_move(
@@ -280,6 +278,7 @@ impl GameState {
     ) -> Result<ActionSuccess, ActionFailure> {
         let possible_path_name = Path::match_basic_aliases(possible_path_name.clone());
 
+        // TODO: should this be a none? i think this whole function should return None if 
         if possible_path_name == "" {
             return Err(ActionFailure { messages: vec![] });
         }
@@ -290,6 +289,7 @@ impl GameState {
         let room = self.rooms.get_room_mut(&room_name);
 
         // TODO: make a pathcollection on each room, make a convenience function which does this?
+        // TODO: move this out and/or give a global "I do not understand"
         let path = match room.paths.get_mut(&possible_path_name) {
             Some(p) => Ok(p),
             None => Err(ActionFailure {
@@ -325,7 +325,9 @@ impl GameState {
         let room = self.rooms.get_room_mut(&room_name);
         room.users.take(user_name);
 
-        Ok(ActionSuccess { messages: messages })
+        let mut succ = ActionSuccess::new(messages);
+        succ.set_was_room_move();
+        Ok(succ)
     }
 
     fn get_online_users_message(&self) -> Vec<String> {
@@ -628,6 +630,30 @@ mod tests {
     }
 
     #[test]
+    fn test_was_movement_input_marked() {
+        let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
+
+        let res = game_state.process_input_impl(&user1name, &"north".to_string());
+        if let Ok(succ) = res {
+            assert_eq!(succ.was_room_move(), true);
+        } else {
+            assert!(false, "Room move failed!");
+        }
+    }
+
+    #[test]
+    fn test_was_non_movement_input_not_marked() {
+        let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
+
+        let res = game_state.process_input_impl(&user1name, &"list_users".to_string());
+        if let Ok(succ) = res {
+            assert_eq!(succ.was_room_move(), false);
+        } else {
+            assert!(false, "Basic global action failed!");
+        }
+    }
+
+    #[test]
     fn test_attempt_valid_global_action() {
         let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
 
@@ -638,7 +664,7 @@ mod tests {
 
         match valid_action_attempt {
             Some(x) => {
-                if let Ok(ActionSuccess { messages }) = x {
+                if let Ok(ActionSuccess{ messages, .. }) = x {
                     assert_eq!(messages, vec!["Users online:".to_string(), user1name]);
                 } else {
                     assert!(false, "Listing users attempt failed!");
