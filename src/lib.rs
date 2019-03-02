@@ -225,11 +225,13 @@ impl GameState {
         let attempt = self.process_input_impl(user_name, user_input);
         match attempt {
             Ok(succ) => {
-                for m in succ.messages {
+                for m in &succ.messages {
                     println!("{}", m);
                 }
                 // TODO: check here if the action was a room move
-                self.print_room(user_name);
+                if succ.was_room_move() {
+                    self.print_room(user_name);
+                }
             }
             Err(unsucc) => {
                 for m in unsucc.messages {
@@ -331,13 +333,18 @@ impl GameState {
     }
 
     fn get_online_users_message(&self) -> Vec<String> {
-        let mut messages = vec!["Users online:".to_string()];
-        for (username, _) in &self.users.users {
-            messages.push(username.to_string());
-        }
-        messages
+        let users: Vec<&String> = self.users.users.keys().collect();
+        format_user_list(users)
     }
 
+}
+
+fn format_user_list(users: Vec<&String>) -> Vec<String> {
+    let mut messages = vec!["Users online:".to_string()];
+    for username in users {
+        messages.push(format!("* {}", username.to_string()));
+    }
+    messages
 }
 
 #[cfg(test)]
@@ -665,7 +672,7 @@ mod tests {
         match valid_action_attempt {
             Some(x) => {
                 if let Ok(ActionSuccess{ messages, .. }) = x {
-                    assert_eq!(messages, vec!["Users online:".to_string(), user1name]);
+                    assert_eq!(messages, format_user_list(vec![&user1name]));
                 } else {
                     assert!(false, "Listing users attempt failed!");
                 }
