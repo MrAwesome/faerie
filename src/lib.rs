@@ -12,19 +12,6 @@ use lambda::{ActionFailure, ActionSuccess};
 pub mod room;
 use room::{Direction, Path, Room};
 
-// Another way of bypassing the unfortunate box ownership issues for calling Fns stored in them.
-//pub trait FnBox {
-//    fn call_box(self: Box<Self>, user: &mut User) -> Result<Option<String>, String>;
-//}
-//
-//impl<F: FnMut(&mut User) -> Result<Option<String>, String>> FnBox for F {
-//    fn call_box(mut self: Box<F>, user: &mut User) -> Result<Option<String>, String> {
-//        (*self)(user)
-//    }
-//}
-//
-//type Job = Box<FnBox + 'static>;
-
 struct RoomStore {
     rooms: HashMap<RoomName, Room>,
 }
