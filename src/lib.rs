@@ -4,7 +4,7 @@ mod user;
 use user::{User, UserType};
 
 mod type_aliases;
-use type_aliases::{PathName, RoomName, UserName};
+use type_aliases::{RoomName, UserName};
 
 mod lambda;
 use lambda::{ActionFailure, ActionSuccess};
@@ -92,6 +92,19 @@ impl UserStore {
             self.users.contains_key(user_name),
             format!("No user named {} exists!", user_name)
         );
+    }
+}
+
+enum GlobalActions {
+    ListOnlineUsers,
+}
+
+impl GlobalActions {
+    fn from_text(input: &String) -> Option<GlobalActions> {
+        match input.as_ref() {
+            "list_users" => Some(GlobalActions::ListOnlineUsers),
+            _ => None,
+        }
     }
 }
 
@@ -216,20 +229,16 @@ impl GameState {
     }
 
     pub fn process_input(&mut self, user_name: &UserName, user_input: &String) {
-        self.attempt_move(user_name, user_input);
-    }
-
-    pub fn attempt_move(&mut self, user_name: &UserName, possible_path_name: &String) {
-        let move_succ = self.attempt_move_impl(user_name, possible_path_name);
-        match move_succ {
+        let attempt = self.process_input_impl(user_name, user_input);
+        match attempt {
             Ok(succ) => {
                 for m in succ.messages {
                     println!("{}", m);
                 }
+                // TODO: check here if the action was a room move
                 self.print_room(user_name);
             }
             Err(unsucc) => {
-                // TODO: fix
                 for m in unsucc.messages {
                     println!("{}", m);
                 }
@@ -237,9 +246,31 @@ impl GameState {
         }
     }
 
-    // TODO: Make a more general processing function of which movement is only one part, call
-    // this function from there
-    fn attempt_move_impl(
+    pub fn process_input_impl(
+        &mut self,
+        user_name: &UserName,
+        user_input: &String,
+    ) -> Result<ActionSuccess, ActionFailure> {
+        // TODO: add a did_move to action success, or just special case it here for print room
+        let global_action_attempt = self.attempt_global_action(user_name, user_input);
+        if let Some(glob_succ) = global_action_attempt {
+            return glob_succ;
+        }
+
+        self.attempt_move(user_name, user_input)
+    }
+
+    pub fn attempt_global_action(
+        &mut self,
+        user_name: &UserName,
+        possible_path_name: &String,
+    ) -> Option<Result<ActionSuccess, ActionFailure>> {
+        //TODO: do actions based on match
+        //Some(Ok(ActionSuccess {messages: vec![] }))
+        None
+    }
+
+    pub fn attempt_move(
         &mut self,
         user_name: &UserName,
         possible_path_name: &String,
@@ -316,6 +347,7 @@ mod tests {
         game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
         (game_state, user1name, room1name, room2name)
     }
+
     #[test]
     fn move_double_norf() {
         let mut game_state = GameState::new();
@@ -333,8 +365,12 @@ mod tests {
         let user1name = "user1".to_string();
         game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
 
-        game_state.attempt_move(&user1name, &"north".to_string());
-        game_state.attempt_move(&user1name, &"n".to_string());
+        game_state
+            .attempt_move(&user1name, &"north".to_string())
+            .unwrap();
+        game_state
+            .attempt_move(&user1name, &"n".to_string())
+            .unwrap();
 
         let user = game_state.users.get_user(&user1name);
         assert_eq!(user.room_name, room3name);
@@ -358,8 +394,12 @@ mod tests {
     fn move_up_and_back() {
         let (mut game_state, user1name, room1name, room2name) = make_simple_2_room_north_map();
 
-        game_state.attempt_move(&user1name, &"n".to_string());
-        game_state.attempt_move(&user1name, &"s".to_string());
+        game_state
+            .attempt_move(&user1name, &"n".to_string())
+            .unwrap();
+        game_state
+            .attempt_move(&user1name, &"s".to_string())
+            .unwrap();
 
         let user = game_state.users.get_user(&user1name);
         assert_eq!(user.room_name, room1name);
@@ -384,7 +424,7 @@ mod tests {
         let is_user_in_room1 = room1.users.contains(&user1name);
         assert_eq!(is_user_in_room1, true);
 
-        let res = game_state.attempt_move_impl(&user1name, &"NORF".to_string());
+        let res = game_state.attempt_move(&user1name, &"NORF".to_string());
         assert_eq!(
             res.is_ok(),
             false,
@@ -531,8 +571,12 @@ mod tests {
         let user1name = "user1".to_string();
         game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
 
-        game_state.attempt_move(&user1name, &"north".to_string());
-        game_state.attempt_move(&user1name, &"south".to_string());
+        game_state
+            .attempt_move(&user1name, &"north".to_string())
+            .unwrap();
+        game_state
+            .attempt_move(&user1name, &"south".to_string())
+            .unwrap();
 
         let user = game_state.users.get_user(&user1name);
         assert_eq!(user.room_name, room1name);
@@ -573,15 +617,9 @@ mod tests {
 
     #[test]
     fn test_attempt_global_action() {
-        let mut game_state = GameState::new();
+        let (mut game_state, user1name, room1name, room2name) = make_simple_2_room_north_map();
 
-        let room1name = "room1".to_string();
-        game_state.create_room(&room1name, "help".to_string());
-
-        let user1name = "user1".to_string();
-        game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
-
-        //        let action_name = "list_users".to_string();
+        let action_name = "list_users".to_string();
         //        let global_action = GlobalAction::new(action_name, mk_action_callback(
         //                                              |state: &mut GameState, user_name: &UserName| {
         //                                                  state.print_debug_map();
