@@ -14,7 +14,7 @@ where
 pub struct Room {
     pub name: RoomName,
     pub description: String,
-    pub exits: HashMap<PathName, Path>,
+    pub paths: HashMap<PathName, Path>,
     pub users: HashSet<UserName>,
 }
 
@@ -28,28 +28,36 @@ impl Room {
         Room {
             name,
             description,
-            exits: HashMap::new(),
+            paths: HashMap::new(),
             users: HashSet::new(),
         }
     }
 
-    pub fn add_exit(&mut self, target_room_name: &RoomName, path_name: &PathName) {
+    pub fn add_path(&mut self, target_room_name: &RoomName, path_name: &PathName) {
+        self.check_duplicate_path(&path_name);
         let path = Path::new(
             target_room_name.clone(),
             path_name.clone(),
             PathType::Normal,
         );
-        self.exits.insert(path_name.clone(), path);
+        self.paths.insert(path_name.clone(), path);
     }
 
-    pub fn add_exit_special(
+    pub fn add_path_special(
         &mut self,
         target_room_name: &RoomName,
         path_name: &PathName,
         path_type: PathType,
     ) {
         let path = Path::new(target_room_name.clone(), path_name.clone(), path_type);
-        self.exits.insert(path_name.clone(), path);
+        self.paths.insert(path_name.clone(), path);
+    }
+
+    pub fn check_duplicate_path(&self, path_name: &PathName) {
+        assert!(
+            !self.paths.contains_key(path_name),
+            format!("Path '{}' from {} already exists!", &path_name, &self.name) 
+        );
     }
 }
 

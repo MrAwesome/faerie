@@ -118,7 +118,7 @@ impl GameMap {
         for (_roomname, room) in &self.rooms.rooms {
             println!("  {}: ", room.name);
             println!("    paths:");
-            for (_pathname, path) in &room.exits {
+            for (_pathname, path) in &room.paths {
                 println!("      * {} -> {}", path.path_name, path.target_room_name);
             }
             println!("    users:");
@@ -144,16 +144,27 @@ impl GameMap {
         println!("{}", &user.room_name);
         println!("  {}", &desc);
         println!();
-        println!("Exits: ");
-        for (_path_name, exit) in &room.exits {
+        println!("paths: ");
+        for (_path_name, exit) in &room.paths {
             println!("* {}", exit.path_name);
         }
     }
 
-    pub fn create_empty_room(&mut self, name: &RoomName, desc: String) {
+    pub fn create_room(&mut self, name: &RoomName, desc: String) {
         let room = Room::new(name.clone(), desc);
         // TODO: make this an action on the roomcollection directly?
         self.rooms.rooms.insert(name.clone(), room);
+    }
+
+    pub fn create_room_from(
+        &mut self,
+        this_name: &RoomName,
+        this_desc: String,
+        other_room_name: &RoomName,
+        direction: Direction,
+    ) {
+        self.create_room(this_name, this_desc);
+        self.add_path(other_room_name, this_name, direction);
     }
 
     pub fn add_path(
@@ -178,7 +189,7 @@ impl GameMap {
         self.rooms.check_room_exists(target_room_name);
         let source_room = self.rooms.get_room_mut(source_room_name);
         let path_name = Direction::get_path_name(direction.clone());
-        source_room.add_exit(target_room_name, &path_name);
+        source_room.add_path(target_room_name, &path_name);
     }
 
     fn get_user_location(&self, user_name: &UserName) -> RoomName {
@@ -197,12 +208,12 @@ impl GameMap {
     //    ) {
     //        let old_room = self.rooms.get_mut(old_room_name).unwrap();
     //        let path_name = Direction::get_path_name(direction.clone());
-    //        old_room.add_exit_special(target_room_name, &path_name, path_type);
+    //        old_room.add_path_special(target_room_name, &path_name, path_type);
     //
     //        if let Some(d) = Direction::get_reverse(direction.clone()) {
     //            let target_room = self.rooms.get_mut(target_room_name).unwrap();
     //            let path_name = Direction::get_path_name(d);
-    //            target_room.add_exit_special(old_room_name, &path_name, path_type);
+    //            target_room.add_path_special(old_room_name, &path_name, path_type);
     //        }
     //    }
 
@@ -264,7 +275,7 @@ impl GameMap {
         let room = self.rooms.get_room_mut(&room_name);
 
         // TODO: make a pathcollection on each room, make a convenience function which does this?
-        let path = match room.exits.get_mut(&possible_path_name) {
+        let path = match room.paths.get_mut(&possible_path_name) {
             Some(p) => Ok(p),
             None => Err(UnsuccessfulMove {
                 message: format!(
@@ -312,9 +323,9 @@ mod tests {
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
         let room3name = "room3".to_string();
-        map.create_empty_room(&room1name, "yeet".to_string());
-        map.create_empty_room(&room2name, "dang".to_string());
-        map.create_empty_room(&room3name, "where am i".to_string());
+        map.create_room(&room1name, "yeet".to_string());
+        map.create_room(&room2name, "dang".to_string());
+        map.create_room(&room3name, "where am i".to_string());
 
         map.add_path(&room1name, &room2name, Direction::North);
         map.add_path(&room2name, &room3name, Direction::North);
@@ -328,12 +339,14 @@ mod tests {
         let user = map.users.get_user(&user1name);
         assert_eq!(user.room_name, room3name);
 
-        // TODO: make these use correct calls
         let room1 = map.rooms.get_room(&room1name);
         let room2 = map.rooms.get_room(&room2name);
         let room3 = map.rooms.get_room(&room3name);
         let is_user_in_room3 = room3.users.contains(&user1name);
         assert_eq!(is_user_in_room3, true);
+
+        let user = map.users.get_user(&user1name);
+        assert_eq!(user.room_name, room3name);
 
         let is_user_in_room1 = room1.users.contains(&user1name);
         let is_user_in_room2 = room2.users.contains(&user1name);
@@ -348,8 +361,8 @@ mod tests {
 
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
-        map.create_empty_room(&room1name, "help".to_string());
-        map.create_empty_room(&room2name, "ffffffffff".to_string());
+        map.create_room(&room1name, "help".to_string());
+        map.create_room(&room2name, "ffffffffff".to_string());
 
         map.add_path(&room1name, &room2name, Direction::North);
 
@@ -377,7 +390,7 @@ mod tests {
         let mut map = GameMap::new();
 
         let room1name = "room1".to_string();
-        map.create_empty_room(&room1name, "blah".to_string());
+        map.create_room(&room1name, "blah".to_string());
 
         let user1name = "user1".to_string();
         map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
@@ -403,7 +416,7 @@ mod tests {
         use super::*;
         let mut map = GameMap::new();
 
-        map.create_empty_room(&"".to_string(), "The Land Of Dook".to_string());
+        map.create_room(&"".to_string(), "The Land Of Dook".to_string());
     }
 
     #[test]
@@ -412,7 +425,7 @@ mod tests {
         use super::*;
         let mut map = GameMap::new();
 
-        map.create_empty_room(&"Mang0".to_string(), "".to_string());
+        map.create_room(&"Mang0".to_string(), "".to_string());
     }
 
     #[test]
@@ -421,7 +434,7 @@ mod tests {
         use super::*;
         let mut map = GameMap::new();
 
-        map.create_empty_room(
+        map.create_room(
             &"Dooklandia".to_string(),
             "Big ol' dook in front of you".to_string(),
         );
@@ -441,7 +454,7 @@ mod tests {
 
         let room1name = "Dooklandia".to_string();
 
-        map.create_empty_room(&room1name, "Big ol' dook in front of you".to_string());
+        map.create_room(&room1name, "Big ol' dook in front of you".to_string());
 
         map.create_user_in_room(
             &"Freddie".to_string(),
@@ -459,8 +472,8 @@ mod tests {
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
 
-        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
-        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+        map.create_room(&room1name, "The Land Of Dook".to_string());
+        map.create_room(&room2name, "The Land Of Dook, 2".to_string());
 
         map.add_path(
             &room1name,
@@ -478,8 +491,8 @@ mod tests {
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
 
-        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
-        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+        map.create_room(&room1name, "The Land Of Dook".to_string());
+        map.create_room(&room2name, "The Land Of Dook, 2".to_string());
 
         map.add_path(
             &room1name,
@@ -497,8 +510,8 @@ mod tests {
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
 
-        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
-        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+        map.create_room(&room1name, "The Land Of Dook".to_string());
+        map.create_room(&room2name, "The Land Of Dook, 2".to_string());
 
         map.add_path(
             &room1name,
@@ -516,14 +529,67 @@ mod tests {
         let room1name = "room1".to_string();
         let room2name = "room2".to_string();
 
-        map.create_empty_room(&room1name, "The Land Of Dook".to_string());
-        map.create_empty_room(&room2name, "The Land Of Dook, 2".to_string());
+        map.create_room(&room1name, "The Land Of Dook".to_string());
+        map.create_room(&room2name, "The Land Of Dook, 2".to_string());
 
         map.add_path(
             &"FAKENEWS".to_string(),
             &room2name,
             Direction::Custom("mkay".to_string(), "jkll".to_string()),
         );
+    }
+
+    #[test]
+    fn create_room_from_other_room() {
+        use super::*;
+        let mut map = GameMap::new();
+
+        let room1name = "room1".to_string();
+        let room2name = "room2".to_string();
+
+        map.create_room(&room1name, "description".to_string());
+        map.create_room_from(
+            &room2name,
+            "description2".to_string(),
+            &room1name,
+            Direction::North,
+        );
+
+        let user1name = "user1".to_string();
+        map.create_user_in_room(&user1name, &room1name, UserType::Civilian);
+
+        map.attempt_move(&user1name, &"north".to_string());
+        map.attempt_move(&user1name, &"south".to_string());
+
+        let user = map.users.get_user(&user1name);
+        assert_eq!(user.room_name, room1name);
+
+        let room1 = map.rooms.get_room(&room1name);
+        let room2 = map.rooms.get_room(&room2name);
+        let is_user_in_room1 = room1.users.contains(&user1name);
+        let is_user_in_room2 = room2.users.contains(&user1name);
+        assert_eq!(is_user_in_room1, true);
+        assert_eq!(is_user_in_room2, false);
+    }
+
+    #[test]
+    #[should_panic(expected = "Path 'north' from room1 already exists!")] 
+    fn test_duplicate_path_creation_panics() {
+        use super::*;
+        let mut map = GameMap::new();
+
+        let room1name = "room1".to_string();
+        let room2name = "room2".to_string();
+
+        map.create_room(&room1name, "description".to_string());
+        map.create_room_from(
+            &room2name,
+            "description2".to_string(),
+            &room1name,
+            Direction::North,
+        );
+
+        map.add_path(&room1name, &room2name, Direction::North);
     }
 
     // TODO: make sure paths are going from correct room to correct room on creation
@@ -535,8 +601,8 @@ mod tests {
     //
     //        let room1name = "room1".to_string();
     //        let room2name = "room2".to_string();
-    //        map.create_empty_room(&room1name);
-    //        map.create_empty_room(&room2name);
+    //        map.create_room(&room1name);
+    //        map.create_room(&room2name);
     //
     //        map.add_path_special(&room1name, &room2name, Direction::North, PathType::Painful);
     //
