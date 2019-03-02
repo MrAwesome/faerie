@@ -1,7 +1,9 @@
+#[derive(Debug)]
 pub struct ActionSuccess {
     pub messages: Vec<String>,
 }
 
+#[derive(Debug)]
 pub struct ActionFailure {
     pub messages: Vec<String>,
 }

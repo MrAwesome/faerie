@@ -14,8 +14,6 @@ fn main() {
 
     loop {
         // TODO: move all of this into dedicated lib functionality
-        println!();
-        println!();
         print!(">>> ");
         io::stdout().flush().unwrap();
         let mut buf = String::new();
@@ -30,7 +28,7 @@ fn main() {
         {
         // TODO: have commands, which override directions
         // This is where you want a better entry point
-        game_state.attempt_move(&user1name, &buf);
+        game_state.process_input(&user1name, &buf);
         }
     }
 }

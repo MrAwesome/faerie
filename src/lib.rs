@@ -215,8 +215,12 @@ impl GameState {
         room.users.insert(user_name.clone());
     }
 
-    pub fn attempt_move(&mut self, user_name: &UserName, path_name: &PathName) {
-        let move_succ = self.attempt_move_impl(user_name, path_name);
+    pub fn process_input(&mut self, user_name: &UserName, user_input: &String) {
+        self.attempt_move(user_name, user_input);
+    }
+
+    pub fn attempt_move(&mut self, user_name: &UserName, possible_path_name: &String) {
+        let move_succ = self.attempt_move_impl(user_name, possible_path_name);
         match move_succ {
             Ok(succ) => {
                 for m in succ.messages {
@@ -291,10 +295,29 @@ impl GameState {
     }
 }
 
+#[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn make_simple_2_room_north_map() -> (GameState, UserName, RoomName, RoomName) {
+        let mut game_state = GameState::new();
+        let room1name = "room1".to_string();
+        let room2name = "room2".to_string();
+
+        game_state.create_room(&room1name, "description".to_string());
+        game_state.create_room_from(
+            &room2name,
+            "description2".to_string(),
+            &room1name,
+            Direction::North,
+        );
+
+        let user1name = "user1".to_string();
+        game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
+        (game_state, user1name, room1name, room2name)
+    }
     #[test]
-    fn move_norf() {
-        use super::*;
+    fn move_double_norf() {
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -333,18 +356,7 @@ mod tests {
 
     #[test]
     fn move_up_and_back() {
-        use super::*;
-        let mut game_state = GameState::new();
-
-        let room1name = "room1".to_string();
-        let room2name = "room2".to_string();
-        game_state.create_room(&room1name, "help".to_string());
-        game_state.create_room(&room2name, "ffffffffff".to_string());
-
-        game_state.add_path(&room1name, &room2name, Direction::North);
-
-        let user1name = "user1".to_string();
-        game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
+        let (mut game_state, user1name, room1name, room2name) = make_simple_2_room_north_map();
 
         game_state.attempt_move(&user1name, &"n".to_string());
         game_state.attempt_move(&user1name, &"s".to_string());
@@ -363,14 +375,7 @@ mod tests {
 
     #[test]
     fn move_invalid_direction() {
-        use super::*;
-        let mut game_state = GameState::new();
-
-        let room1name = "room1".to_string();
-        game_state.create_room(&room1name, "blah".to_string());
-
-        let user1name = "user1".to_string();
-        game_state.create_user_in_room(&user1name, &room1name, UserType::Civilian);
+        let (mut game_state, user1name, room1name, _) = make_simple_2_room_north_map();
 
         let user = game_state.users.get_user(&user1name);
         assert_eq!(user.room_name, room1name);
@@ -379,7 +384,7 @@ mod tests {
         let is_user_in_room1 = room1.users.contains(&user1name);
         assert_eq!(is_user_in_room1, true);
 
-        let res = game_state.attempt_move_impl(&user1name, &"northhampton".to_string());
+        let res = game_state.attempt_move_impl(&user1name, &"NORF".to_string());
         assert_eq!(
             res.is_ok(),
             false,
@@ -390,7 +395,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Empty room names are not allowed!")]
     fn attempt_empty_room_name_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         game_state.create_room(&"".to_string(), "The Land Of Dook".to_string());
@@ -399,7 +403,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Empty room descriptions are not allowed!")]
     fn attempt_empty_room_description_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         game_state.create_room(&"Mang0".to_string(), "".to_string());
@@ -408,7 +411,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Empty user names are not allowed!")]
     fn attempt_empty_user_name_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         game_state.create_room(
@@ -426,7 +428,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Failed to find room named FAKEFRIENDS for mutation!")]
     fn attempt_incorrect_room_user_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "Dooklandia".to_string();
@@ -443,7 +444,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Empty path names are not allowed!")]
     fn attempt_empty_oneway_path_name_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -462,7 +462,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Empty path names are not allowed!")]
     fn attempt_empty_twoway_path_name_creation() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -481,7 +480,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "No room named FAKENEWS exists!")]
     fn attempt_path_to_invalid_room() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -500,7 +498,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Failed to find room named FAKENEWS for mutation!")]
     fn attempt_path_from_invalid_room() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -518,7 +515,6 @@ mod tests {
 
     #[test]
     fn create_room_from_other_room() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
@@ -552,26 +548,31 @@ mod tests {
     #[test]
     #[should_panic(expected = "Path 'north' from room1 already exists!")]
     fn test_duplicate_path_creation_panics() {
-        use super::*;
-        let mut game_state = GameState::new();
-
-        let room1name = "room1".to_string();
-        let room2name = "room2".to_string();
-
-        game_state.create_room(&room1name, "description".to_string());
-        game_state.create_room_from(
-            &room2name,
-            "description2".to_string(),
-            &room1name,
-            Direction::North,
-        );
+        let (mut game_state, _, room1name, room2name) = make_simple_2_room_north_map();
 
         game_state.add_path(&room1name, &room2name, Direction::North);
     }
 
     #[test]
+    fn test_process_movement_input() {
+        let (mut game_state, user1name, room1name, room2name) = make_simple_2_room_north_map();
+
+        game_state.process_input(&user1name, &"north".to_string());
+
+        let user = game_state.users.get_user(&user1name);
+        assert_eq!(user.room_name, room2name);
+
+        let room1 = game_state.rooms.get_room(&room1name);
+        let is_user_in_room1 = room1.users.contains(&user1name);
+        assert_eq!(is_user_in_room1, false);
+
+        let room2 = game_state.rooms.get_room(&room2name);
+        let is_user_in_room2 = room2.users.contains(&user1name);
+        assert_eq!(is_user_in_room2, true);
+    }
+
+    #[test]
     fn test_attempt_global_action() {
-        use super::*;
         let mut game_state = GameState::new();
 
         let room1name = "room1".to_string();
