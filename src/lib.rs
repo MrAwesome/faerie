@@ -631,12 +631,12 @@ mod tests {
     fn test_attempt_valid_global_action() {
         let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
 
-        let valid_action = game_state.attempt_global_action(
+        let valid_action_attempt = game_state.attempt_global_action(
             &user1name,
             &GlobalActions::from_enum(GlobalActions::ListOnlineUsers),
         );
 
-        match valid_action {
+        match valid_action_attempt {
             Some(x) => {
                 if let Ok(ActionSuccess { messages }) = x {
                     assert_eq!(messages, vec!["Users online:".to_string(), user1name]);
@@ -647,6 +647,20 @@ mod tests {
             None => {
                 assert!(false, "Got no result from global action attempt!");
             }
+        }
+    }
+
+    #[test]
+    fn test_attempt_invalid_global_action() {
+        let (mut game_state, user1name, _, _) = make_simple_2_room_north_map();
+
+        let invalid_action_attempt = game_state.attempt_global_action(
+            &user1name,
+            &"DOODOOBUTT".to_string(),
+        );
+
+        if let Some(_) = invalid_action_attempt {
+            assert!(false, "Got a result for an invalid action!");
         }
     }
 }
